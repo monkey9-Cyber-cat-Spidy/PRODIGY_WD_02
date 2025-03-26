@@ -1,4 +1,4 @@
-# ⏱️ Continuous Stopwatch (Single File Web App)
+# ⏱️Stopwatch 
 
 A **modern and interactive stopwatch web application** built using **HTML, CSS, and JavaScript**. This stopwatch continues running even after the browser tab is closed, thanks to local storage support. This is a project for my internship in Prodigy infotech.
 
