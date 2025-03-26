@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Continuous Stopwatch</title>
+  <style>
+    /* ====== Basic Reset ====== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* ====== Body Styling ====== */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: linear-gradient(to right, #00b09b, #96c93d);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      /* Increase base font size for the entire page */
+      font-size: 18px;
+    }
+
+    /* ====== Main Container ====== */
+    .stopwatch-container {
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      /* Increase padding for a bigger container */
+      padding: 40px;
+      /* Increase width for a bigger container */
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      /* Increase font size of the heading */
+      font-size: 2rem;
+    }
+
+    /* ====== Timer Display ====== */
+    #display {
+      /* Increase display font size */
+      font-size: 4rem;
+      margin-bottom: 30px;
+      letter-spacing: 2px;
+    }
+
+    /* ====== Buttons ====== */
+    .buttons {
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      background-color: #f0f0f0;
+      color: #333;
+      border: none;
+      /* Increase padding for larger buttons */
+      padding: 15px 25px;
+      /* Increase font size for button text */
+      font-size: 1.2rem;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .btn:hover {
+      background-color: #ccc;
+    }
+
+    /* ====== Lap List ====== */
+    .laps {
+      text-align: left;
+      max-height: 200px; /* Increased height for more lap visibility */
+      overflow-y: auto;
+      margin: 0 auto;
+      width: 80%;
+    }
+
+    .laps h2 {
+      margin-bottom: 10px;
+      font-size: 1.5rem;
+    }
+
+    .lap-item {
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      margin: 5px 0;
+      padding: 5px 10px;
+      font-size: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="stopwatch-container">
+    <h1>Stopwatch</h1>
+    <div id="display">00:00:00</div>
+
+    <div class="buttons">
+      <button class="btn" id="startBtn">Start</button>
+      <button class="btn" id="pauseBtn">Pause</button>
+      <button class="btn" id="stopBtn">Stop</button>
+      <button class="btn" id="resetBtn">Reset</button>
+      <button class="btn" id="lapBtn">Lap</button>
+    </div>
+
+    <div class="laps">
+      <h2>Laps</h2>
+      <div id="lapsContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    // --------------------------------------------------
+    // Global Variables (Representing Our Stopwatch State)
+    // --------------------------------------------------
+    let isRunning = false;   // Whether the stopwatch is running
+    let startTime = 0;       // Timestamp (ms) when the current run started
+    let baseElapsed = 0;     // Total ms elapsed from previous runs
+    let laps = [];           // Array of strings for each lap time
+
+    // Interval reference
+    let timerInterval = null;
+
+    // --------------------------------------------------
+    // DOM References
+    // --------------------------------------------------
+    const display = document.getElementById('display');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const lapBtn = document.getElementById('lapBtn');
+    const lapsContainer = document.getElementById('lapsContainer');
+
+    // --------------------------------------------------
+    // Event Listeners
+    // --------------------------------------------------
+    startBtn.addEventListener('click', startStopwatch);
+    pauseBtn.addEventListener('click', pauseStopwatch);
+    stopBtn.addEventListener('click', stopStopwatch);
+    resetBtn.addEventListener('click', resetStopwatch);
+    lapBtn.addEventListener('click', recordLap);
+
+    // --------------------------------------------------
+    // On Page Load
+    // --------------------------------------------------
+    window.addEventListener('load', () => {
+      loadDataFromLocalStorage();
+      // If the stopwatch was running when the page was closed,
+      // we need to catch up the elapsed time to "now"
+      if (isRunning) {
+        // Add the time passed since last session
+        const now = Date.now();
+        baseElapsed += (now - startTime);
+        // Reset startTime to now for continuous counting
+        startTime = now;
+        startInterval();
+      }
+      updateDisplay();
+      renderLaps();
+    });
+
+    // --------------------------------------------------
+    // Start the Stopwatch
+    // --------------------------------------------------
+    function startStopwatch() {
+      if (!isRunning) {
+        isRunning = true;
+        // Set startTime so that elapsed = (Date.now() - startTime) + baseElapsed
+        startTime = Date.now();
+        startInterval();
+        saveDataToLocalStorage();
+      }
+    }
+
+    // --------------------------------------------------
+    // Pause the Stopwatch
+    // --------------------------------------------------
+    function pauseStopwatch() {
+      if (isRunning) {
+        // Add any time that has passed since last start to baseElapsed
+        baseElapsed += Date.now() - startTime;
+        isRunning = false;
+        clearInterval(timerInterval);
+        saveDataToLocalStorage();
+      }
+    }
+
+    // --------------------------------------------------
+    // Stop the Stopwatch
+    // --------------------------------------------------
+    function stopStopwatch() {
+      if (isRunning) {
+        // Calculate final elapsed before stopping
+        baseElapsed += Date.now() - startTime;
+      }
+      isRunning = false;
+      clearInterval(timerInterval);
+      saveDataToLocalStorage();
+    }
+
+    // --------------------------------------------------
+    // Reset the Stopwatch
+    // --------------------------------------------------
+    function resetStopwatch() {
+      isRunning = false;
+      clearInterval(timerInterval);
+
+      // Reset times
+      baseElapsed = 0;
+      startTime = 0;
+
+      // Clear laps
+      laps = [];
+
+      updateDisplay();
+      renderLaps();
+      saveDataToLocalStorage();
+    }
+
+    // --------------------------------------------------
+    // Record a Lap
+    // --------------------------------------------------
+    function recordLap() {
+      const currentMs = getCurrentMs();
+      laps.push(msToHMS(currentMs));
+      renderLaps();
+      saveDataToLocalStorage();
+    }
+
+    // --------------------------------------------------
+    // Update the Display at an Interval
+    // --------------------------------------------------
+    function startInterval() {
+      // Update the display more frequently than 1s for better accuracy
+      timerInterval = setInterval(() => {
+        updateDisplay();
+      }, 100);
+    }
+
+    // --------------------------------------------------
+    // Compute Current Elapsed Time (in ms)
+    // --------------------------------------------------
+    function getCurrentMs() {
+      if (!isRunning) {
+        // If paused/stopped, the total is just baseElapsed
+        return baseElapsed;
+      } else {
+        // If running, add the time since we started
+        return baseElapsed + (Date.now() - startTime);
+      }
+    }
+
+    // --------------------------------------------------
+    // Convert ms to HH:MM:SS
+    // --------------------------------------------------
+    function msToHMS(milliseconds) {
+      let totalSeconds = Math.floor(milliseconds / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      totalSeconds %= 3600;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+
+      const hh = hours < 10 ? '0' + hours : hours;
+      const mm = minutes < 10 ? '0' + minutes : minutes;
+      const ss = seconds < 10 ? '0' + seconds : seconds;
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    // --------------------------------------------------
+    // Update Display with Current Elapsed Time
+    // --------------------------------------------------
+    function updateDisplay() {
+      const currentMs = getCurrentMs();
+      display.textContent = msToHMS(currentMs);
+    }
+
+    // --------------------------------------------------
+    // Render Laps
+    // --------------------------------------------------
+    function renderLaps() {
+      lapsContainer.innerHTML = '';
+      laps.forEach((lapTime, index) => {
+        const lapDiv = document.createElement('div');
+        lapDiv.className = 'lap-item';
+        lapDiv.textContent = `Lap ${index + 1}: ${lapTime}`;
+        lapsContainer.appendChild(lapDiv);
+      });
+    }
+
+    // --------------------------------------------------
+    // Local Storage Persistence
+    // --------------------------------------------------
+    function saveDataToLocalStorage() {
+      const data = {
+        isRunning,
+        startTime,
+        baseElapsed,
+        laps
+      };
+      localStorage.setItem('continuousStopwatch', JSON.stringify(data));
+    }
+
+    function loadDataFromLocalStorage() {
+      const savedData = localStorage.getItem('continuousStopwatch');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        isRunning = parsed.isRunning;
+        startTime = parsed.startTime;
+        baseElapsed = parsed.baseElapsed;
+        laps = parsed.laps || [];
+      }
+    }
+  </script>
+</body>
+</html>
